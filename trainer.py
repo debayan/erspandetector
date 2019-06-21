@@ -27,7 +27,7 @@ testsplit = d[int(0.9*len(d)):]
 trainx = []
 trainlabels = []
 for item in trainsplit:
-    nullvector = [-1]*426
+    nullvector = [-1]*456
     for i in range(50 - len(item['wordvectors'])):
         item['wordvectors'].append(nullvector)
     trainx.append(item['wordvectors'])
@@ -41,7 +41,7 @@ trainlabeltensors = torch.tensor(trainlabels,dtype=torch.long).cuda()
 testx = []
 testlabels = []
 for item in testsplit:
-    nullvector = [-1]*426
+    nullvector = [-1]*456
     for i in range(50 - len(item['wordvectors'])):
         item['wordvectors'].append(nullvector)
     testx.append(item['wordvectors'])
@@ -55,15 +55,15 @@ testlabeltensors = torch.tensor(testlabels,dtype=torch.long).cuda()
 
 # These will usually be more like 32 or 64 dimensional.
 # We will keep them small, so we can see how the weights change as we train.
-EMBEDDING_DIM = 426
-HIDDEN_DIM = 426
+EMBEDDING_DIM = 456
+HIDDEN_DIM = 456
 
 
 class LSTMTagger(nn.Module):
     def __init__(self, embedding_dim, hidden_dim, tagset_size):
         super(LSTMTagger, self).__init__()
         self.hidden_dim = hidden_dim
-        self.sru = SRU(input_size=embedding_dim, hidden_size=hidden_dim//2, num_layers=4,dropout=0.3,layer_norm=True,bidirectional=True)
+        self.sru = SRU(input_size=embedding_dim, hidden_size=hidden_dim//2, num_layers=3,dropout=0.3,layer_norm=True,bidirectional=True)
         self.dropout = nn.Dropout(p=0.3)
         self.relu = nn.ReLU()
         self.hidden2tag = nn.Sequential(
@@ -87,8 +87,8 @@ if len(sys.argv) > 1:
     
 
 loss_function = nn.NLLLoss()
-#optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.5, nesterov=True)
-optimizer = optim.SGD(model.parameters(), lr=0.1)
+optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.5, nesterov=True)
+#optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
 def beam_search_decoder(data, k):
     sequences = [[list(), 1.0]]
