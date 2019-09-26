@@ -10,7 +10,6 @@ import numpy as np
 from math import log
 from numpy import array
 from numpy import argmax
-from sru import SRU, SRUCell
 
 torch.manual_seed(1)
 
@@ -20,9 +19,10 @@ def prepare_sequence(seq, to_ix):
 
 
 MAX_PAD_LIMIT = 50
-d = json.loads(open('wordvectorstraintestngram.json').read())
+#d1 = json.loads(open('wordvecsngramsparaphrased1.json').read())
+d = json.loads(open('wordvecsngrams4.json').read())
 random.shuffle(d)
-trainsplit = d[0:int(0.9*len(d))]
+trainsplit = d#[0:int(0.9*len(d))]
 testsplit = d[int(0.9*len(d)):]
 trainx = []
 trainlabels = []
@@ -30,13 +30,18 @@ for item in trainsplit:
     nullvector = [-1]*456
     for i in range(50 - len(item['wordvectors'])):
         item['wordvectors'].append(nullvector)
+    _newerspan = item['erspan'] + [3]*(50 - len(item['erspan']))
+    newerspan = [0 if x == 2 else x for x in _newerspan]
+    if len(newerspan) != 50 or len(item['wordvectors']) != 50:
+        print(item['question'])
+        print(item['erspan'])
+        continue
     trainx.append(item['wordvectors'])
-    for i in range(50 - len(item['erspan'])):
-        item['erspan'].append(3)
-    trainlabels.append(item['erspan'])
+    trainlabels.append(newerspan)
 
-trainxtensors = torch.tensor(trainx,dtype=torch.float).cuda()
-trainlabeltensors = torch.tensor(trainlabels,dtype=torch.long).cuda()
+
+trainxtensors = torch.tensor(trainx,dtype=torch.float)#.cuda()
+trainlabeltensors = torch.tensor(trainlabels,dtype=torch.long)#.cuda()
 
 testx = []
 testlabels = []
@@ -44,13 +49,18 @@ for item in testsplit:
     nullvector = [-1]*456
     for i in range(50 - len(item['wordvectors'])):
         item['wordvectors'].append(nullvector)
+    _newerspan = item['erspan'] + [3]*(50 - len(item['erspan']))
+    newerspan = [0 if x == 2 else x for x in _newerspan]
+    if len(newerspan) != 50 or len(item['wordvectors']) != 50:
+        print(item['question'])
+        print(item['erspan'])
+        continue
     testx.append(item['wordvectors'])
-    for i in range(50 - len(item['erspan'])):
-        item['erspan'].append(3)
-    testlabels.append(item['erspan'])
-
-testxtensors = torch.tensor(testx,dtype=torch.float).cuda()
-testlabeltensors = torch.tensor(testlabels,dtype=torch.long).cuda()
+    testlabels.append(newerspan)
+    
+print(len(testx))
+testxtensors = torch.tensor(testx,dtype=torch.float)#.cuda()
+testlabeltensors = torch.tensor(testlabels,dtype=torch.long)#.cuda()
 
 
 # These will usually be more like 32 or 64 dimensional.
@@ -63,21 +73,24 @@ class LSTMTagger(nn.Module):
     def __init__(self, embedding_dim, hidden_dim, tagset_size):
         super(LSTMTagger, self).__init__()
         self.hidden_dim = hidden_dim
-        self.sru = SRU(input_size=embedding_dim, hidden_size=hidden_dim//2, num_layers=3,dropout=0.3,layer_norm=True,bidirectional=True)
-        self.dropout = nn.Dropout(p=0.3)
+        self.lstm = nn.LSTM(input_size=embedding_dim, hidden_size=hidden_dim//2, num_layers=4,bidirectional=True,batch_first=True)
+        self.dropout = nn.Dropout(p=0.1)
         self.relu = nn.ReLU()
         self.hidden2tag = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim),
             nn.BatchNorm1d(hidden_dim),
             self.relu,
             self.dropout,
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.BatchNorm1d(hidden_dim),
+            self.relu,
             nn.Linear(hidden_dim, 4)
-        )
+        ).cuda()
 
     def forward(self, sentence):
-        sru_out, _ = self.sru(sentence)
-        batch_size = sru_out.shape[0]
-        tags = self.hidden2tag(sru_out.contiguous().view(-1, sru_out.size(2)))
+        lstm_out, _ = self.lstm(sentence)
+        batch_size = lstm_out.shape[0]
+        tags = self.hidden2tag(lstm_out.contiguous().view(-1, lstm_out.size(2)))
         scores = F.log_softmax(tags, dim=1)
         return scores
 
@@ -87,7 +100,7 @@ if len(sys.argv) > 1:
     
 
 loss_function = nn.NLLLoss()
-optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.5, nesterov=True)
+optimizer = optim.SGD(model.parameters(), lr=0.01)
 #optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
 def beam_search_decoder(data, k):
@@ -109,13 +122,13 @@ def beam_search_decoder(data, k):
 
 iter = 0
 bestacc = 0.0
-batch_size=1000
+batch_size=400
 while 1:
     permutation = torch.randperm(trainxtensors.size()[0])
 
     for i in range(0,trainxtensors.size()[0],batch_size):
         indices = permutation[i:i+batch_size]
-        _trainxtensors,_trainlabeltensors = trainxtensors[indices],trainlabeltensors[indices]
+        _trainxtensors,_trainlabeltensors = trainxtensors[indices].cuda(),trainlabeltensors[indices].cuda()
         model.zero_grad()
         tag_scores = model(_trainxtensors)
         loss = loss_function(tag_scores, _trainlabeltensors.view(-1))
@@ -125,10 +138,10 @@ while 1:
         if iter%100 == 0 and iter > 0:
             print(loss)
             with torch.no_grad():
-                preds = model(testxtensors)
+                preds = model(testxtensors[:2000].cuda())
                 preds = preds.view((int(preds.shape[0]/50),50,4))
                 _, pred_labels = torch.max(preds, dim=-1)
-                y_true = testlabeltensors.cpu().data.numpy()
+                y_true = testlabeltensors[:2000].cpu().data.numpy()
                 y_pred = pred_labels.cpu().data.numpy()
                 for j in range(pred_labels.size()[0]):
                     end = np.where(y_true[j]==3)[0][0]
@@ -145,7 +158,7 @@ while 1:
                             bestseqacc = acc
                     totacc += bestseqacc
                 if totacc > bestacc:
-                    torch.save(model.state_dict(), 'erspaner.model')
+                    torch.save(model.state_dict(), 'erspan3.model')
                     bestacc = totacc
                 print("Test accuracy = %f, Best accuracy = %f"%(totacc/float(pred_labels.size()[0]), bestacc/float(pred_labels.size()[0])))
         iter += 1

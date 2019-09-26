@@ -7,9 +7,9 @@ items = []
 
 for item in d:
     q = item['question']
-    print(q)
+    #print(q)
     q = re.sub("\s*\?", "", q.strip())
-    print(q)
+    #print(q)
     qspan = [0]*len(q)
     for entity in item['entity mapping']:
         if entity['matchedBy'] != 'miss':
@@ -35,7 +35,7 @@ for item in d:
             #if beg == -1:
             #    continue
             qspan[beg:end] = [2] * len(pred["label"]) #predicate
-    print(len(q),len(qspan))
+    #print(len(q),len(qspan))
     count = 0
     for char in q:
         if char == ' ':
@@ -45,17 +45,17 @@ for item in d:
     #print(qspantokens)
     qspantokens = filter(lambda a: a != -1, qspantokens)
     if 1 in qspantokens and 2 in qspantokens:
-        print(q)
+        #print(q)
         #print(item)
-        print(qspan)
-        print(qspantokens)
-        items.append({'question':q, 'erspan':qspantokens})
+        #print(qspan)
+        #print(qspantokens)
+        items.append({'question':q, 'erspan':list(qspantokens)})
 
 for item in d:
     q = item['question'].lower()
-    print(q)
+    #print(q)
     q = re.sub("\s*\?", "", q.strip())
-    print(q)
+    #print(q)
     qspan = [0]*len(q)
     for entity in item['entity mapping']:
         if entity['matchedBy'] != 'miss':
@@ -71,7 +71,7 @@ for item in d:
                 continue
             end = beg + len(pred["label"].lower())
             qspan[beg:end] = [2] * len(pred["label"].lower()) #predicate
-    print(len(q),len(qspan))
+    #print(len(q),len(qspan))
     count = 0
     for char in q:
         if char == ' ':
@@ -81,13 +81,13 @@ for item in d:
     #print(qspantokens)
     qspantokens = filter(lambda a: a != -1, qspantokens)
     if 1 in qspantokens and 2 in qspantokens:
-        print(q)
+        #print(q)
         #print(item)
-        print(qspan)
-        print(qspantokens)
-        items.append({'question':q, 'erspan':qspantokens})
+        #print(qspan)
+        #print(qspantokens)
+        items.append({'question':q, 'erspan':list(qspantokens)})
 
 print(len(items))
 f = open('erspans.json','w')
-f.write(json.dumps(items))
+f.write(json.dumps(items,indent=4, sort_keys=True))
 f.close()

@@ -10,9 +10,8 @@ postags = ["CC","CD","DT","EX","FW","IN","JJ","JJR","JJS","LS","MD","NN","NNS","
 es = Elasticsearch()
 
 def givewordvectors(question):
-    q = question 
-    erspan = item['erspan']
-    q = re.sub("\s*\?", "", q.strip())
+    q = question
+    #q = re.sub("\s*\?", "", q.strip())
     result = TextBlob(q)
     chunks = result.tags
     fuzzscores = []
@@ -34,14 +33,11 @@ def givewordvectors(question):
         #n-1,n
         if idx > 0:
             word = chunkswords[idx-1][1] + ' ' + chunkswords[idx][1]
-            esresult = es.search(index="dbentityindex11", body={"query":{"multi_match":{"query":word,"fields":["wikidataLabel", "dbpediaLabel^1.5"]}},"size":10})
+            esresult = es.search(index="wikidataentitylabelindex01", body={"query":{"multi_match":{"query":word,"fields":["wikidataLabel"]}},"size":10})
             esresults = esresult['hits']['hits']
             if len(esresults) > 0:
                 for esresult in esresults:
-                    if 'dbpediaLabel' in esresult['_source']:
-                        wordvector +=  [fuzz.ratio(word, esresult['_source']['dbpediaLabel'])/100.0, fuzz.partial_ratio(word, esresult['_source']['dbpediaLabel'])/100.0, fuzz.token_sort_ratio(word, esresult['_source']['dbpediaLabel'])/100.0]
-                    if 'wikidataLabel' in esresult['_source']:
-                        wordvector +=  [fuzz.ratio(word, esresult['_source']['wikidataLabel'])/100.0, fuzz.partial_ratio(word, esresult['_source']['wikidataLabel'])/100.0, fuzz.token_sort_ratio(word, esresult['_source']['wikidataLabel'])/100.0]
+                    wordvector +=  [fuzz.ratio(word, esresult['_source']['wikidataLabel'])/100.0, fuzz.partial_ratio(word, esresult['_source']['wikidataLabel'])/100.0, fuzz.token_sort_ratio(word, esresult['_source']['wikidataLabel'])/100.0]
                 wordvector += (10-len(esresults)) * [0.0,0.0,0.0]
             else:
                 wordvector +=  10*[0.0,0.0,0.0]
@@ -49,28 +45,22 @@ def givewordvectors(question):
             wordvector +=  10*[0.0,0.0,0.0]
         #n
         word = chunkwordtuple[1] 
-        esresult = es.search(index="dbentityindex11", body={"query":{"multi_match":{"query":word,"fields":["wikidataLabel", "dbpediaLabel^1.5"]}},"size":10})
+        esresult = es.search(index="wikidataentitylabelindex01", body={"query":{"multi_match":{"query":word,"fields":["wikidataLabel"]}},"size":10})
         esresults = esresult['hits']['hits']
         if len(esresults) > 0:
             for esresult in esresults:
-                if 'dbpediaLabel' in esresult['_source']:
-                    wordvector +=  [fuzz.ratio(word, esresult['_source']['dbpediaLabel'])/100.0, fuzz.partial_ratio(word, esresult['_source']['dbpediaLabel'])/100.0, fuzz.token_sort_ratio(word, esresult['_source']['dbpediaLabel'])/100.0]
-                if 'wikidataLabel' in esresult['_source']:
-                    wordvector +=  [fuzz.ratio(word, esresult['_source']['wikidataLabel'])/100.0, fuzz.partial_ratio(word, esresult['_source']['wikidataLabel'])/100.0, fuzz.token_sort_ratio(word, esresult['_source']['wikidataLabel'])/100.0]
+                wordvector +=  [fuzz.ratio(word, esresult['_source']['wikidataLabel'])/100.0, fuzz.partial_ratio(word, esresult['_source']['wikidataLabel'])/100.0, fuzz.token_sort_ratio(word, esresult['_source']['wikidataLabel'])/100.0]
             wordvector += (10-len(esresults)) * [0.0,0.0,0.0]
         else:
             wordvector +=  10*[0.0,0.0,0.0]
         #n,n+1
         if idx < len(chunkswords)-1:
             word = chunkswords[idx][1] + ' ' + chunkswords[idx+1][1]
-            esresult = es.search(index="dbentityindex11", body={"query":{"multi_match":{"query":word,"fields":["wikidataLabel", "dbpediaLabel^1.5"]}},"size":10})
+            esresult = es.search(index="wikidataentitylabelindex01", body={"query":{"multi_match":{"query":word,"fields":["wikidataLabel"]}},"size":10})
             esresults = esresult['hits']['hits']
             if len(esresults) > 0:
                 for esresult in esresults:
-                    if 'dbpediaLabel' in esresult['_source']:
-                        wordvector +=  [fuzz.ratio(word, esresult['_source']['dbpediaLabel'])/100.0, fuzz.partial_ratio(word, esresult['_source']['dbpediaLabel'])/100.0, fuzz.token_sort_ratio(word, esresult['_source']['dbpediaLabel'])/100.0]
-                    if 'wikidataLabel' in esresult['_source']:
-                        wordvector +=  [fuzz.ratio(word, esresult['_source']['wikidataLabel'])/100.0, fuzz.partial_ratio(word, esresult['_source']['wikidataLabel'])/100.0, fuzz.token_sort_ratio(word, esresult['_source']['wikidataLabel'])/100.0]
+                    wordvector +=  [fuzz.ratio(word, esresult['_source']['wikidataLabel'])/100.0, fuzz.partial_ratio(word, esresult['_source']['wikidataLabel'])/100.0, fuzz.token_sort_ratio(word, esresult['_source']['wikidataLabel'])/100.0]
                 wordvector += (10-len(esresults)) * [0.0,0.0,0.0]
             else:
                 wordvector +=  10*[0.0,0.0,0.0]
@@ -79,14 +69,11 @@ def givewordvectors(question):
         #n-1,n,n+1
         if idx > 0 and idx < len(chunkswords)-1:
             word = chunkswords[idx-1][1] + ' ' + chunkswords[idx][1] + ' ' + chunkswords[idx+1][1]
-            esresult = es.search(index="dbentityindex11", body={"query":{"multi_match":{"query":word,"fields":["wikidataLabel", "dbpediaLabel^1.5"]}},"size":10})
+            esresult = es.search(index="wikidataentitylabelindex01", body={"query":{"multi_match":{"query":word,"fields":["wikidataLabel"]}},"size":10})
             esresults = esresult['hits']['hits']
             if len(esresults) > 0:
                 for esresult in esresults:
-                    if 'dbpediaLabel' in esresult['_source']:
-                        wordvector +=  [fuzz.ratio(word, esresult['_source']['dbpediaLabel'])/100.0, fuzz.partial_ratio(word, esresult['_source']['dbpediaLabel'])/100.0, fuzz.token_sort_ratio(word, esresult['_source']['dbpediaLabel'])/100.0]
-                    if 'wikidataLabel' in esresult['_source']:
-                        wordvector +=  [fuzz.ratio(word, esresult['_source']['wikidataLabel'])/100.0, fuzz.partial_ratio(word, esresult['_source']['wikidataLabel'])/100.0, fuzz.token_sort_ratio(word, esresult['_source']['wikidataLabel'])/100.0]
+                    wordvector +=  [fuzz.ratio(word, esresult['_source']['wikidataLabel'])/100.0, fuzz.partial_ratio(word, esresult['_source']['wikidataLabel'])/100.0, fuzz.token_sort_ratio(word, esresult['_source']['wikidataLabel'])/100.0]
                 wordvector += (10-len(esresults)) * [0.0,0.0,0.0]
             else:
                 wordvector +=  10*[0.0,0.0,0.0]
@@ -103,23 +90,38 @@ def givewordvectors(question):
     return wordvectors
 
 
-d = json.loads(open('erspans.json').read())
+d = json.loads(open('ngramentitylabelled2.json').read())
 items = []
 for item in d:
     wordvectors = givewordvectors(item['question'])
     iu = {}
     iu['question'] = item['question']
     iu['wordvectors'] = wordvectors
-    iu['erspan'] = item['erspan']
+    iu['erspan'] = item['spanlabelled']
     items.append(iu)
-    wordvectors = givewordvectors(item['question'].lower())
-    iu = {}
-    iu['question'] = item['question'].lower()
-    iu['wordvectors'] = wordvectors
-    iu['erspan'] = item['erspan']
-    items.append(iu)
-
-
-f = open('wordvectorstraintestngram.json','w')
+f = open('entityonlywordvecsngramsparaphrased3.json','w')
 f.write(json.dumps(items,sort_keys=True,indent=4, separators=(',', ': ')))
 f.close()
+
+#d = json.loads(open('lcqspans.json').read())
+#items = []
+#for item in d:
+#    wordvectors = givewordvectors(item['text'])
+#    iu = {}
+#    iu['question'] = item['text']
+#    iu['wordvectors'] = wordvectors
+#    iu['erspan'] = item['span']
+#    items.append(iu)
+#print('phase 1 done')
+#d = json.loads(open('wordvectorstraintestngram.json').read())
+#for item in d:
+#    wordvectors = givewordvectors(item['question'])
+#    iu = {}
+#    iu['question'] = item['question']
+#    iu['wordvectors'] = wordvectors
+#    iu['erspan'] = item['erspan']
+#    items.append(iu)
+#
+#f = open('wordvecsngramsparaphrased1.json','w')
+#f.write(json.dumps(items,sort_keys=True,indent=4, separators=(',', ': ')))
+#f.close()
