@@ -20,23 +20,26 @@ def prepare_sequence(seq, to_ix):
 
 MAX_PAD_LIMIT = 50
 #d1 = json.loads(open('wordvecsngramsparaphrased1.json').read())
-d = json.loads(open('wordvecsngrams4.json').read())
-random.shuffle(d)
-trainsplit = d#[0:int(0.9*len(d))]
+d = json.loads(open('entityonlywordvecsngrams1.json').read())
+#random.shuffle(d)
+trainsplit = d[0:int(0.9*len(d))]
 testsplit = d[int(0.9*len(d)):]
 trainx = []
 trainlabels = []
 for item in trainsplit:
-    nullvector = [-1]*456
-    for i in range(50 - len(item['wordvectors'])):
-        item['wordvectors'].append(nullvector)
+    wv = []
+    for vec in item['wordvectors']:
+        wv.append(vec[420:])
+    nullvector = [-1]*36
+    for i in range(50 - len(wv)):
+        wv.append(nullvector)
     _newerspan = item['erspan'] + [3]*(50 - len(item['erspan']))
     newerspan = [0 if x == 2 else x for x in _newerspan]
-    if len(newerspan) != 50 or len(item['wordvectors']) != 50:
+    if len(newerspan) != 50 or len(wv) != 50:
         print(item['question'])
         print(item['erspan'])
         continue
-    trainx.append(item['wordvectors'])
+    trainx.append(wv)
     trainlabels.append(newerspan)
 
 
@@ -46,16 +49,19 @@ trainlabeltensors = torch.tensor(trainlabels,dtype=torch.long)#.cuda()
 testx = []
 testlabels = []
 for item in testsplit:
-    nullvector = [-1]*456
-    for i in range(50 - len(item['wordvectors'])):
-        item['wordvectors'].append(nullvector)
+    wv = []
+    for vec in item['wordvectors']:
+        wv.append(vec[420:])
+    nullvector = [-1]*36
+    for i in range(50 - len(wv)):
+        wv.append(nullvector)
     _newerspan = item['erspan'] + [3]*(50 - len(item['erspan']))
     newerspan = [0 if x == 2 else x for x in _newerspan]
-    if len(newerspan) != 50 or len(item['wordvectors']) != 50:
+    if len(newerspan) != 50 or len(wv) != 50:
         print(item['question'])
         print(item['erspan'])
         continue
-    testx.append(item['wordvectors'])
+    testx.append(wv)
     testlabels.append(newerspan)
     
 print(len(testx))
@@ -65,8 +71,8 @@ testlabeltensors = torch.tensor(testlabels,dtype=torch.long)#.cuda()
 
 # These will usually be more like 32 or 64 dimensional.
 # We will keep them small, so we can see how the weights change as we train.
-EMBEDDING_DIM = 456
-HIDDEN_DIM = 456
+EMBEDDING_DIM = 36
+HIDDEN_DIM = 36
 
 
 class LSTMTagger(nn.Module):
@@ -100,8 +106,8 @@ if len(sys.argv) > 1:
     
 
 loss_function = nn.NLLLoss()
-optimizer = optim.SGD(model.parameters(), lr=0.01)
-#optimizer = optim.Adam(model.parameters(), lr=0.0001)
+#optimizer = optim.SGD(model.parameters(), lr=0.001)
+optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
 def beam_search_decoder(data, k):
     sequences = [[list(), 1.0]]
@@ -120,11 +126,15 @@ def beam_search_decoder(data, k):
         sequences = ordered[:k]
     return sequences
 
-iter = 0
+iterations = 0
 bestacc = 0.0
-batch_size=400
+batch_size=200
+batchstep = 0
 while 1:
+    if iterations == 50:
+        break
     permutation = torch.randperm(trainxtensors.size()[0])
+    iterations += 1
 
     for i in range(0,trainxtensors.size()[0],batch_size):
         indices = permutation[i:i+batch_size]
@@ -135,7 +145,7 @@ while 1:
         loss.backward()
         optimizer.step()
         totacc = 0
-        if iter%100 == 0 and iter > 0:
+        if batchstep%100 == 0 and batchstep > 0:
             print(loss)
             with torch.no_grad():
                 preds = model(testxtensors[:2000].cuda())
@@ -158,7 +168,7 @@ while 1:
                             bestseqacc = acc
                     totacc += bestseqacc
                 if totacc > bestacc:
-                    torch.save(model.state_dict(), 'erspan3.model')
+                    torch.save(model.state_dict(), 'ent36.model')
                     bestacc = totacc
-                print("Test accuracy = %f, Best accuracy = %f"%(totacc/float(pred_labels.size()[0]), bestacc/float(pred_labels.size()[0])))
-        iter += 1
+                print("Test accuracy = %f, Best accuracy = %f, iterations=%d"%(totacc/float(pred_labels.size()[0]), bestacc/float(pred_labels.size()[0]),iterations))
+        batchstep += 1
